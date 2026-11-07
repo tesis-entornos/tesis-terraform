@@ -1,0 +1,21 @@
+# Directorios locales de Terraform
+.terraform/
+
+# State
+*.tfstate
+*.tfstate.*
+
+# Variables (pueden contener datos sensibles); los ejemplos sí se versionan
+*.tfvars
+!*.tfvars.example
+
+# Logs de crash
+crash.log
+
+# Overrides locales
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# .terraform.lock.hcl SÍ se versiona (no ignorar)
