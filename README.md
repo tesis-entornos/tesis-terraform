@@ -8,7 +8,7 @@ Infraestructura del prototipo de la tesis sobre entornos efímeros vs. fijos, ge
 |---|---|---|
 | `compartida/` | Recursos de la cuenta compartida (`582621604637`), región `us-east-2`: bucket de states y repositorios ECR. | Aplicada |
 | `estado/` | Bucket de states de cada cuenta de modelo (`tesis-entornos-tfstate-<account_id>`). Un state por modelo, en su propio bucket. | Fijo aplicado; efímero pendiente |
-| `base-modelo/` | Base de cada modelo (efímero / fijo). | Pendiente |
+| `base-modelo/` | Base de cada modelo (efímero / fijo). | Fijo aplicado (DNS y certificados); efímero pendiente |
 | `entorno/` | Entornos individuales sobre la base del modelo. | Pendiente |
 
 Cada capa es un root module independiente con su propio state.

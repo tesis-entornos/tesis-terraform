@@ -40,3 +40,33 @@ variable "parent_domain" {
   description = "Dominio de la zona raíz, en la cuenta compartida"
   type        = string
 }
+
+variable "vpc_cidr" {
+  description = "Bloque CIDR de la VPC del modelo"
+  type        = string
+}
+
+variable "azs" {
+  description = "Zonas de disponibilidad de las subredes, una subred pública y una privada por zona"
+  type        = list(string)
+}
+
+variable "public_subnet_cidrs" {
+  description = "CIDR de las subredes públicas (ALB y tareas ECS), en el mismo orden que azs"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.public_subnet_cidrs) == length(var.azs)
+    error_message = "Tiene que haber un CIDR de subred pública por cada zona de azs."
+  }
+}
+
+variable "private_subnet_cidrs" {
+  description = "CIDR de las subredes privadas (RDS y ElastiCache), en el mismo orden que azs"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.private_subnet_cidrs) == length(var.azs)
+    error_message = "Tiene que haber un CIDR de subred privada por cada zona de azs."
+  }
+}
