@@ -148,11 +148,18 @@ Qué hace:
    a un directorio temporal (se borra al salir, también si falla).
 2. Manifiesto `<sha256>  <ruta>` de cada archivo, ordenado por ruta; `frontend_hash` es el sha256
    del manifiesto. Mismo resultado en macOS (`shasum`) y en Linux (`sha256sum`).
-3. `aws s3 sync` de `assets/` con `Cache-Control: public, max-age=31536000, immutable`, y después
-   del resto (`index.html`, etc.) con `Cache-Control: no-cache`, los dos con `--delete`. En ese
-   orden, `index.html` nunca apunta a un asset que todavía no se subió.
-4. No invalida CloudFront: `index.html` es `no-cache` (CloudFront revalida con S3 en cada pedido)
-   y los JS y CSS cambian de nombre con cada build.
+3. Subida en tres grupos, en este orden, para que `index.html` nunca apunte a algo que todavía
+   no se subió:
+   1. `assets/` sin subcarpetas (JS y CSS con hash de Vite): `public, max-age=31536000, immutable`.
+   2. `assets/images/` (archivos de `public/`, sin hash en el nombre): `no-cache`.
+   3. El resto de la raíz: `no-cache`, con `index.html` al final.
+
+   Cada grupo hace `--delete` solo sobre lo suyo. Los grupos `no-cache` se suben siempre
+   (`aws s3 cp`) antes del `sync --delete`: `sync` no vuelve a subir un archivo del mismo tamaño
+   si el local es más viejo, y `docker cp` conserva la fecha de la imagen, así que no actualizaría
+   la metadata. Si `assets/` tiene otra subcarpeta, el script frena.
+4. No invalida CloudFront: lo `no-cache` se revalida con S3 en cada pedido y lo inmutable cambia
+   de nombre con cada build.
 
 Salida: progreso por stderr y una línea JSON por stdout con `imagen`, `digest`, `bucket`,
 `frontend_hash`, `archivos`, `inicio`, `fin` (UTC, ISO 8601) y `duracion_s`.
