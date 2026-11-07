@@ -9,7 +9,7 @@ Infraestructura del prototipo de la tesis sobre entornos efímeros vs. fijos, ge
 | `compartida/` | Recursos de la cuenta compartida (`582621604637`), región `us-east-2`: bucket de states y repositorios ECR. | Aplicada |
 | `estado/` | Bucket de states de cada cuenta de modelo (`tesis-entornos-tfstate-<account_id>`). Un state por modelo, en su propio bucket. | Fijo aplicado; efímero pendiente |
 | `base-modelo/` | Base de cada modelo (efímero / fijo). | Fijo aplicado (DNS, certificados, VPC, ALB, RDS, ElastiCache y ECS); efímero pendiente |
-| `entorno/` | Entornos individuales sobre la base del modelo, un state por entorno (`entornos/<slug>/terraform.tfstate`). | Backend escrito para el fijo (`compartido`); frontend pendiente |
+| `entorno/` | Entornos individuales sobre la base del modelo, un state por entorno (`entornos/<slug>/terraform.tfstate`). | Fijo compartido aplicado: backend y frontend |
 
 Cada capa es un root module independiente con su propio state.
 
@@ -123,3 +123,36 @@ Para el efímero es lo mismo con `backend-efimero.hcl`, `values-efimero.tfvars` 
 
 La base de datos `app_<slug>` no la crea Terraform: la crea `scripts/reset_baseline.py` del
 backend (`DROP DATABASE IF EXISTS` + `CREATE DATABASE`, migraciones y superusuario).
+
+## Publicación del frontend (`scripts/publicar-frontend.sh`)
+
+Los archivos estáticos del frontend no los sube Terraform: se extraen de la imagen del
+frontend (la misma que se construye para todos los entornos) y se suben al bucket del entorno,
+que CloudFront sirve con OAC.
+
+```sh
+AWS_PROFILE=tf-fijo scripts/publicar-frontend.sh \
+  582621604637.dkr.ecr.us-east-2.amazonaws.com/tesis-frontend@sha256:<digest> \
+  "$(terraform -chdir=entorno output -raw frontend_bucket)"
+```
+
+- Argumentos: la imagen **por digest** (rechaza tags) y el bucket (`frontend_bucket` de `entorno/`).
+- Credenciales: `AWS_PROFILE` o las del entorno. Región: `AWS_REGION` (default `us-east-2`).
+- Docker tiene que poder hacer pull de la imagen: antes, `docker login` al ECR de la cuenta
+  compartida (`aws ecr get-login-password --region us-east-2 --profile tf-compartida | docker login --username AWS --password-stdin 582621604637.dkr.ecr.us-east-2.amazonaws.com`).
+- `MANIFEST_OUT=<archivo>` guarda el manifiesto de hashes.
+
+Qué hace:
+
+1. `docker pull --platform linux/arm64`, `docker create` y `docker cp` de `/usr/share/nginx/html`
+   a un directorio temporal (se borra al salir, también si falla).
+2. Manifiesto `<sha256>  <ruta>` de cada archivo, ordenado por ruta; `frontend_hash` es el sha256
+   del manifiesto. Mismo resultado en macOS (`shasum`) y en Linux (`sha256sum`).
+3. `aws s3 sync` de `assets/` con `Cache-Control: public, max-age=31536000, immutable`, y después
+   del resto (`index.html`, etc.) con `Cache-Control: no-cache`, los dos con `--delete`. En ese
+   orden, `index.html` nunca apunta a un asset que todavía no se subió.
+4. No invalida CloudFront: `index.html` es `no-cache` (CloudFront revalida con S3 en cada pedido)
+   y los JS y CSS cambian de nombre con cada build.
+
+Salida: progreso por stderr y una línea JSON por stdout con `imagen`, `digest`, `bucket`,
+`frontend_hash`, `archivos`, `inicio`, `fin` (UTC, ISO 8601) y `duracion_s`.
