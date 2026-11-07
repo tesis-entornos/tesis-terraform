@@ -89,13 +89,13 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# El agente de ECS lee las credenciales de RDS para inyectarlas como secreto en el contenedor.
+# El agente de ECS lee los secretos del modelo (tesis/<modelo>/*) para inyectarlos en los contenedores.
 data "aws_iam_policy_document" "ecs_execution_secrets" {
   statement {
-    sid       = "LeerSecretoDeRds"
+    sid       = "LeerSecretosDelModelo"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_db_instance.postgres.master_user_secret[0].secret_arn]
+    resources = ["arn:aws:secretsmanager:${var.region}:${var.account_id}:secret:${local.secrets_prefix}*"]
   }
 }
 

@@ -23,3 +23,5 @@ db_username          = "postgres"
 cache_engine         = "redis"
 cache_engine_version = "7.1"
 cache_node_type      = "cache.t4g.micro"
+
+first_superuser_email = "admin@tesis-entornos.click"

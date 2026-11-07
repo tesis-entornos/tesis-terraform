@@ -110,3 +110,8 @@ variable "cache_node_type" {
   description = "Tipo de nodo de ElastiCache"
   type        = string
 }
+
+variable "first_superuser_email" {
+  description = "Email del superusuario inicial del backend. Se expone como output para las capas de entorno"
+  type        = string
+}

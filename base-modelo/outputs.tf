@@ -69,8 +69,8 @@ output "db_port" {
 }
 
 output "db_master_secret_arn" {
-  description = "ARN del secreto de Secrets Manager con las credenciales del usuario maestro"
-  value       = aws_db_instance.postgres.master_user_secret[0].secret_arn
+  description = "ARN del secreto tesis/<modelo>/db-master (JSON con username, password, host y port)"
+  value       = aws_secretsmanager_secret.db_master.arn
 }
 
 output "db_security_group_id" {
@@ -121,4 +121,24 @@ output "execution_role_arn" {
 output "log_group_name" {
   description = "Nombre del log group de CloudWatch de las tareas ECS"
   value       = aws_cloudwatch_log_group.ecs.name
+}
+
+output "secret_key_secret_arn" {
+  description = "ARN del secreto tesis/<modelo>/secret-key (SECRET_KEY del backend)"
+  value       = aws_secretsmanager_secret.secret_key.arn
+}
+
+output "first_superuser_password_secret_arn" {
+  description = "ARN del secreto tesis/<modelo>/first-superuser-password (FIRST_SUPERUSER_PASSWORD del backend)"
+  value       = aws_secretsmanager_secret.first_superuser_password.arn
+}
+
+output "first_superuser_email" {
+  description = "Email del superusuario inicial (FIRST_SUPERUSER del backend)"
+  value       = var.first_superuser_email
+}
+
+output "secrets_prefix" {
+  description = "Prefijo de nombre de los secretos del modelo. El rol de ejecución puede leer todos los secretos con este prefijo"
+  value       = local.secrets_prefix
 }
