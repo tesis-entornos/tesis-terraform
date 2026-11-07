@@ -75,3 +75,23 @@ variable "backend_port" {
   description = "Puerto del backend en las tareas ECS. El ALB solo puede salir hacia ese puerto dentro de la VPC"
   type        = number
 }
+
+variable "db_engine_version" {
+  description = "Versión exacta (mayor.minor) de RDS PostgreSQL. Sin actualizaciones automáticas de minor"
+  type        = string
+}
+
+variable "db_instance_class" {
+  description = "Clase de instancia de RDS PostgreSQL"
+  type        = string
+}
+
+variable "db_allocated_storage" {
+  description = "Almacenamiento de RDS PostgreSQL, en GiB"
+  type        = number
+}
+
+variable "db_username" {
+  description = "Usuario maestro de RDS PostgreSQL. La contraseña la genera y guarda RDS en Secrets Manager"
+  type        = string
+}

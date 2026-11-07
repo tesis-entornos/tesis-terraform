@@ -57,3 +57,23 @@ output "alb_security_group_id" {
   description = "ID del security group del ALB, origen permitido en el security group de las tareas"
   value       = aws_security_group.alb.id
 }
+
+output "db_address" {
+  description = "Hostname de RDS PostgreSQL"
+  value       = aws_db_instance.postgres.address
+}
+
+output "db_port" {
+  description = "Puerto de RDS PostgreSQL"
+  value       = aws_db_instance.postgres.port
+}
+
+output "db_master_secret_arn" {
+  description = "ARN del secreto de Secrets Manager con las credenciales del usuario maestro"
+  value       = aws_db_instance.postgres.master_user_secret[0].secret_arn
+}
+
+output "db_security_group_id" {
+  description = "ID del security group de RDS PostgreSQL"
+  value       = aws_security_group.rds.id
+}
