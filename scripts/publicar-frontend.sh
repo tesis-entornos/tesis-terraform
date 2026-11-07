@@ -8,9 +8,14 @@
 # (default us-east-2). Docker tiene que poder hacer pull de la imagen (docker login a ECR antes).
 # MANIFEST_OUT=<archivo>: guarda ahí el manifiesto de hashes.
 #
-# Orden de subida: primero /assets (nombres con hash, cache inmutable) y después el resto
-# (index.html y archivos de la raíz, no-cache), así index.html nunca referencia un asset que
-# todavía no está. No invalida CloudFront: index.html es no-cache y los assets cambian de nombre.
+# Orden de subida, para que index.html nunca referencie algo que todavía no está:
+#   1. assets/ sin subcarpetas: JS y CSS con hash de Vite → inmutable.
+#   2. assets/images/: archivos de public/, sin hash en el nombre → no-cache.
+#   3. el resto de la raíz → no-cache, con index.html al final.
+# Cada paso usa --delete solo sobre lo suyo (los excluidos no se borran). Los grupos no-cache se
+# suben siempre (cp) antes del sync: sync no vuelve a subir un archivo de igual tamaño si el local
+# es más viejo, y docker cp conserva la fecha de la imagen, así que no actualizaría la metadata.
+# No invalida CloudFront: lo no-cache se revalida en cada pedido y lo inmutable cambia de nombre.
 #
 # Salida: progreso por stderr y, al final, una línea JSON por stdout.
 # Funciona en macOS (bash 3.2, shasum) y en Linux (sha256sum).
@@ -79,6 +84,9 @@ container=""
 site="$tmp/html"
 [ -f "$site/index.html" ] || die "la imagen no tiene $HTML_DIR/index.html"
 [ -d "$site/assets" ] || die "la imagen no tiene $HTML_DIR/assets"
+# Solo se conoce assets/images como subcarpeta: otra quedaría sin regla de cache, así que se frena.
+otras="$(cd "$site/assets" && find . -mindepth 1 -type d ! -path './images' ! -path './images/*')"
+[ -z "$otras" ] || die "subcarpetas de assets/ sin regla de cache: $(echo "$otras" | tr '\n' ' ')"
 
 # --- 2. Hash del contenido ------------------------------------------------------
 
@@ -104,13 +112,33 @@ fi
 
 # --- 3. Subida ------------------------------------------------------------------
 
-log "sync de assets/ a s3://$bucket/assets ($CACHE_ASSETS)"
+# 1. assets/ sin subcarpetas (con hash): sync alcanza, un nombre nuevo es un archivo nuevo.
+log "1/3 assets/ sin subcarpetas → s3://$bucket/assets ($CACHE_ASSETS)"
 aws s3 sync "$site/assets" "s3://$bucket/assets" \
-  --delete --no-progress --cache-control "$CACHE_ASSETS" >&2
+  --exclude "*/*" --delete --no-progress --cache-control "$CACHE_ASSETS" >&2
 
-log "sync del resto a s3://$bucket ($CACHE_OTROS)"
+# 2. assets/images/ (sin hash): se suben siempre y después sync --delete borra lo que sobra.
+if [ -d "$site/assets/images" ]; then
+  log "2/3 assets/images/ → s3://$bucket/assets/images ($CACHE_OTROS)"
+  aws s3 cp "$site/assets/images" "s3://$bucket/assets/images" \
+    --recursive --no-progress --cache-control "$CACHE_OTROS" >&2
+  aws s3 sync "$site/assets/images" "s3://$bucket/assets/images" \
+    --delete --no-progress --cache-control "$CACHE_OTROS" >&2
+else
+  log "2/3 sin assets/images/: se borra lo que haya en el bucket"
+  aws s3 rm "s3://$bucket/assets/images" --recursive --only-show-errors >&2
+fi
+
+# 3. El resto de la raíz, con index.html al final.
+log "3/3 raíz sin assets/ → s3://$bucket ($CACHE_OTROS), index.html al final"
+aws s3 cp "$site" "s3://$bucket" \
+  --recursive --exclude "assets/*" --exclude "index.html" \
+  --no-progress --cache-control "$CACHE_OTROS" >&2
 aws s3 sync "$site" "s3://$bucket" \
-  --exclude "assets/*" --delete --no-progress --cache-control "$CACHE_OTROS" >&2
+  --exclude "assets/*" --exclude "index.html" \
+  --delete --no-progress --cache-control "$CACHE_OTROS" >&2
+aws s3 cp "$site/index.html" "s3://$bucket/index.html" \
+  --no-progress --cache-control "$CACHE_OTROS" >&2
 
 fin="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 fin_s="$(date -u +%s)"
