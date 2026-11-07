@@ -32,3 +32,23 @@ output "task_role_arn" {
   description = "ARN del rol de tarea del backend"
   value       = aws_iam_role.task.arn
 }
+
+output "frontend_bucket" {
+  description = "Bucket con los archivos estáticos del frontend del entorno"
+  value       = aws_s3_bucket.frontend.bucket
+}
+
+output "cloudfront_distribution_id" {
+  description = "ID de la distribución de CloudFront del entorno (para invalidaciones)"
+  value       = aws_cloudfront_distribution.this.id
+}
+
+output "cloudfront_domain_name" {
+  description = "Nombre DNS de la distribución de CloudFront"
+  value       = aws_cloudfront_distribution.this.domain_name
+}
+
+output "public_fqdn" {
+  description = "Nombre público del entorno (frontend y /api/*)"
+  value       = local.public_fqdn
+}
