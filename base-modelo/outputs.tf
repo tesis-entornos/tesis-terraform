@@ -92,3 +92,33 @@ output "cache_security_group_id" {
   description = "ID del security group de ElastiCache"
   value       = aws_security_group.cache.id
 }
+
+output "ecs_cluster_name" {
+  description = "Nombre del clúster ECS del modelo"
+  value       = aws_ecs_cluster.this.name
+}
+
+output "ecs_cluster_arn" {
+  description = "ARN del clúster ECS del modelo"
+  value       = aws_ecs_cluster.this.arn
+}
+
+output "tasks_security_group_id" {
+  description = "ID del security group de las tareas ECS"
+  value       = aws_security_group.tasks.id
+}
+
+output "execution_role_arn" {
+  description = "ARN del rol de ejecución de las tareas ECS, con sus políticas ya asociadas"
+  value       = aws_iam_role.ecs_execution.arn
+
+  depends_on = [
+    aws_iam_role_policy_attachment.ecs_execution,
+    aws_iam_role_policy.ecs_execution_secrets,
+  ]
+}
+
+output "log_group_name" {
+  description = "Nombre del log group de CloudWatch de las tareas ECS"
+  value       = aws_cloudwatch_log_group.ecs.name
+}
