@@ -95,3 +95,18 @@ variable "db_username" {
   description = "Usuario maestro de RDS PostgreSQL. La contraseña la genera y guarda RDS en Secrets Manager"
   type        = string
 }
+
+variable "cache_engine" {
+  description = "Motor de ElastiCache (redis / valkey)"
+  type        = string
+}
+
+variable "cache_engine_version" {
+  description = "Versión mayor.minor del motor de ElastiCache. Sin actualizaciones automáticas de minor"
+  type        = string
+}
+
+variable "cache_node_type" {
+  description = "Tipo de nodo de ElastiCache"
+  type        = string
+}

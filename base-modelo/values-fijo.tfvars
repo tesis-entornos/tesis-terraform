@@ -19,3 +19,7 @@ db_engine_version    = "18.6"
 db_instance_class    = "db.t4g.micro"
 db_allocated_storage = 20
 db_username          = "postgres"
+
+cache_engine         = "redis"
+cache_engine_version = "7.1"
+cache_node_type      = "cache.t4g.micro"

@@ -77,3 +77,18 @@ output "db_security_group_id" {
   description = "ID del security group de RDS PostgreSQL"
   value       = aws_security_group.rds.id
 }
+
+output "cache_primary_endpoint" {
+  description = "Hostname del nodo primario de ElastiCache"
+  value       = aws_elasticache_replication_group.redis.primary_endpoint_address
+}
+
+output "cache_port" {
+  description = "Puerto de ElastiCache"
+  value       = aws_elasticache_replication_group.redis.port
+}
+
+output "cache_security_group_id" {
+  description = "ID del security group de ElastiCache"
+  value       = aws_security_group.cache.id
+}
