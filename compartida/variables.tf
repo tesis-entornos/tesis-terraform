@@ -24,3 +24,13 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "ecr_repositories" {
+  description = "Nombres de los repositorios ECR de las imágenes del prototipo"
+  type        = set(string)
+}
+
+variable "pull_account_ids" {
+  description = "Cuentas autorizadas a hacer pull de las imágenes (cuentas de los modelos)"
+  type        = list(string)
+}
