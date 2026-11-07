@@ -16,10 +16,13 @@ Cada capa es un root module independiente con su propio state.
 
 - Versión de Terraform fijada en `.terraform-version` (tfenv).
 - El `.terraform.lock.hcl` de cada capa se versiona.
-- Perfil AWS de `compartida/`: `tf-compartida`.
+- La configuración de cada capa va en `values*.tfvars`, versionados (sin secretos).
+  Cualquier otro `.tfvars` queda fuera del repo.
+- El provider solo acepta credenciales de la cuenta indicada en `account_id`.
 
 ```sh
 cd compartida
-terraform init
-terraform validate
+terraform init -backend-config=backend.hcl
+terraform plan -var-file=values.tfvars -out=plan.tfplan
+terraform apply plan.tfplan
 ```

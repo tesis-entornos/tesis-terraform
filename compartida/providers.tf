@@ -1,10 +1,9 @@
 provider "aws" {
-  profile = "tf-compartida"
-  region  = "us-east-2"
+  profile             = var.aws_profile
+  region              = var.region
+  allowed_account_ids = [var.account_id]
 
   default_tags {
-    tags = {
-      modelo = "compartida"
-    }
+    tags = local.common_tags
   }
 }

@@ -1,16 +1,25 @@
 # Directorios locales de Terraform
 .terraform/
+.terraform.tfstate.lock.info
 
 # State
 *.tfstate
 *.tfstate.*
 
-# Variables (pueden contener datos sensibles); los ejemplos sí se versionan
+# Planes guardados (pueden contener valores sensibles)
+*.tfplan
+*.tfplan.*
+tfplan
+
+# Variables: values*.tfvars se versionan (configuración no sensible por capa/modelo).
+# Cualquier otro .tfvars queda local (por ejemplo, uno con secretos).
 *.tfvars
+!values*.tfvars
 !*.tfvars.example
 
 # Logs de crash
 crash.log
+crash.*.log
 
 # Overrides locales
 override.tf
