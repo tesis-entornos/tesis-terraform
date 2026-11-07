@@ -9,7 +9,7 @@ Infraestructura del prototipo de la tesis sobre entornos efímeros vs. fijos, ge
 | `compartida/` | Recursos de la cuenta compartida (`582621604637`), región `us-east-2`: bucket de states y repositorios ECR. | Aplicada |
 | `estado/` | Bucket de states de cada cuenta de modelo (`tesis-entornos-tfstate-<account_id>`). Un state por modelo, en su propio bucket. | Fijo aplicado; efímero pendiente |
 | `base-modelo/` | Base de cada modelo (efímero / fijo). | Fijo aplicado (DNS, certificados, VPC, ALB, RDS, ElastiCache y ECS); efímero pendiente |
-| `entorno/` | Entornos individuales sobre la base del modelo. | Pendiente |
+| `entorno/` | Entornos individuales sobre la base del modelo, un state por entorno (`entornos/<slug>/terraform.tfstate`). | Backend escrito para el fijo (`compartido`); frontend pendiente |
 
 Cada capa es un root module independiente con su propio state.
 
@@ -91,3 +91,35 @@ terraform apply plan.tfplan
 
 `-reconfigure` hace falta al cambiar de modelo dentro del mismo directorio, porque
 `.terraform/` recuerda el último backend inicializado.
+
+## Entornos (`entorno/`)
+
+Cada entorno es un state propio en el bucket del modelo, con key `entornos/<slug>/terraform.tfstate`.
+`backend-<modelo>.hcl` no tiene key y `values-<modelo>.tfvars` solo tiene los valores del modelo:
+lo propio de cada entorno se pasa por línea de comandos.
+
+| Variable | Qué es | Ejemplo |
+|---|---|---|
+| `slug` | Identificador del entorno (`[a-z0-9-]`, hasta 20 caracteres). Va en los nombres de recursos, en el subdominio, en la base de datos (`app_<slug>` con `-` → `_`) y como prefijo de caché. | `compartido` |
+| `n` | Número del entorno dentro del modelo (1 a 99). La regla del listener del ALB usa la prioridad `n * 10`, así que no se puede repetir dentro del modelo. | `1` |
+| `backend_image` | Imagen del backend por digest (ver `imagenes-<fecha>/digests.md`). | `582621604637.dkr.ecr.us-east-2.amazonaws.com/tesis-backend@sha256:…` |
+
+Ejemplo para el entorno `compartido` del fijo:
+
+```sh
+cd entorno
+terraform init -reconfigure \
+  -backend-config=backend-fijo.hcl \
+  -backend-config="key=entornos/compartido/terraform.tfstate"
+terraform plan -var-file=values-fijo.tfvars \
+  -var slug=compartido -var n=1 \
+  -var backend_image=582621604637.dkr.ecr.us-east-2.amazonaws.com/tesis-backend@sha256:<digest> \
+  -out=entorno.tfplan
+terraform apply entorno.tfplan
+```
+
+Para el efímero es lo mismo con `backend-efimero.hcl`, `values-efimero.tfvars` y su propio `slug` y `n`.
+`-reconfigure` hace falta cada vez que se cambia de entorno en el mismo directorio.
+
+La base de datos `app_<slug>` no la crea Terraform: la crea `scripts/reset_baseline.py` del
+backend (`DROP DATABASE IF EXISTS` + `CREATE DATABASE`, migraciones y superusuario).
