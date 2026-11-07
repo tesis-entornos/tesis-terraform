@@ -70,3 +70,8 @@ variable "private_subnet_cidrs" {
     error_message = "Tiene que haber un CIDR de subred privada por cada zona de azs."
   }
 }
+
+variable "backend_port" {
+  description = "Puerto del backend en las tareas ECS. El ALB solo puede salir hacia ese puerto dentro de la VPC"
+  type        = number
+}

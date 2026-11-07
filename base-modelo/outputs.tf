@@ -32,3 +32,28 @@ output "private_subnet_ids" {
   description = "IDs de las subredes privadas, en el orden de azs"
   value       = [for k in keys(local.subnets) : aws_subnet.private[k].id]
 }
+
+output "alb_arn" {
+  description = "ARN del ALB del modelo"
+  value       = aws_lb.this.arn
+}
+
+output "alb_dns_name" {
+  description = "Nombre DNS del ALB, destino de los alias de cada entorno"
+  value       = aws_lb.this.dns_name
+}
+
+output "alb_zone_id" {
+  description = "Hosted zone ID del ALB, para los registros alias de Route 53"
+  value       = aws_lb.this.zone_id
+}
+
+output "https_listener_arn" {
+  description = "ARN del listener HTTPS 443, donde cada entorno agrega sus reglas"
+  value       = aws_lb_listener.https.arn
+}
+
+output "alb_security_group_id" {
+  description = "ID del security group del ALB, origen permitido en el security group de las tareas"
+  value       = aws_security_group.alb.id
+}
