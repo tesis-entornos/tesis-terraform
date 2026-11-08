@@ -1,5 +1,6 @@
 locals {
-  tfstate_bucket_name = "tesis-entornos-tfstate-${var.account_id}"
+  tfstate_bucket_name    = "tesis-entornos-tfstate-${var.account_id}"
+  buildspecs_bucket_name = "tesis-entornos-buildspecs-${var.account_id}"
 
   common_tags = merge(
     {
