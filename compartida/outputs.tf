@@ -32,3 +32,8 @@ output "publicador_project_name" {
   description = "Nombre del proyecto de CodeBuild que publica los buildspecs"
   value       = aws_codebuild_project.publicador.name
 }
+
+output "dockerhub_secret_arn" {
+  description = "ARN del secreto con las credenciales de Docker Hub (valor cargado a mano)"
+  value       = aws_secretsmanager_secret.dockerhub.arn
+}
