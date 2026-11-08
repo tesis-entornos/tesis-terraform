@@ -47,8 +47,8 @@ resource "aws_s3_bucket_policy" "buildspecs" {
   depends_on = [aws_s3_bucket_public_access_block.buildspecs]
 }
 
-# Queda en PENDING hasta autorizarla a mano en la consola.
+# Creada y autorizada desde la consola (con la app instalada en la org tesis-entornos) e importada.
 resource "aws_codeconnections_connection" "github" {
-  name          = "tesis-github"
+  name          = "tesis-entornos"
   provider_type = "GitHub"
 }

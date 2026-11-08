@@ -27,3 +27,8 @@ output "github_connection_arn" {
   description = "ARN de la conexión con GitHub (PENDING hasta autorizarla en la consola)"
   value       = aws_codeconnections_connection.github.arn
 }
+
+output "publicador_project_name" {
+  description = "Nombre del proyecto de CodeBuild que publica los buildspecs"
+  value       = aws_codebuild_project.publicador.name
+}
