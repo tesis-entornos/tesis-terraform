@@ -10,4 +10,4 @@ pull_account_ids = [
   "398846004421", # tesis-efimero
 ]
 
-buildspecs_folder = "build"
+buildspecs_folder = "main"
