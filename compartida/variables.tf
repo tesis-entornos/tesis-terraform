@@ -34,3 +34,13 @@ variable "pull_account_ids" {
   description = "Cuentas autorizadas a hacer pull de las imágenes (cuentas de los modelos)"
   type        = list(string)
 }
+
+variable "buildspecs_folder" {
+  description = "Carpeta del bucket de buildspecs de la que leen los proyectos de build (build-<repo>.yml)"
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$", var.buildspecs_folder))
+    error_message = "buildspecs_folder es una ruta relativa sin barras al principio ni al final."
+  }
+}
