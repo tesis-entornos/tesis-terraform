@@ -42,3 +42,8 @@ output "build_project_names" {
   description = "Nombres de los proyectos de build único, por repo"
   value       = { for k, p in aws_codebuild_project.build : k => p.name }
 }
+
+output "github_cd_secret_arn" {
+  description = "ARN del secreto con el token de GitHub para los repos de CD (valor cargado a mano)"
+  value       = aws_secretsmanager_secret.github_cd.arn
+}

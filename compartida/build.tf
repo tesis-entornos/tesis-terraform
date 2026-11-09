@@ -77,6 +77,13 @@ data "aws_iam_policy_document" "build" {
     resources = [aws_secretsmanager_secret.dockerhub.arn]
   }
 
+  statement {
+    sid       = "LeerCredencialesGitHubCd"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.github_cd.arn]
+  }
+
   # Los mismos permisos que el publicador para usar la conexión de GitHub como source.
   statement {
     sid       = "UsarConexionGitHub"
@@ -134,6 +141,25 @@ resource "aws_codebuild_project" "build" {
       name  = "DOCKERHUB_TOKEN"
       type  = "SECRETS_MANAGER"
       value = "${aws_secretsmanager_secret.dockerhub.name}:token"
+    }
+
+    environment_variable {
+      name  = "GITHUB_CD_USERNAME"
+      type  = "SECRETS_MANAGER"
+      value = "${aws_secretsmanager_secret.github_cd.name}:username"
+    }
+
+    environment_variable {
+      name  = "GITHUB_CD_TOKEN"
+      type  = "SECRETS_MANAGER"
+      value = "${aws_secretsmanager_secret.github_cd.name}:token"
+    }
+
+    # Repo de CD de este proyecto: tesis-backend-cd / tesis-frontend-cd.
+    environment_variable {
+      name  = "GITHUB_CD_REPO"
+      type  = "PLAINTEXT"
+      value = "${each.value}-cd"
     }
   }
 
