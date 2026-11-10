@@ -255,4 +255,10 @@ resource "aws_ecs_service" "backend" {
 
   # El target group tiene que estar asociado al ALB (por la regla) antes de crear el servicio.
   depends_on = [aws_lb_listener_rule.backend]
+
+  # Las imágenes las despliega el CD por AWS CLI (task definition nueva + update-service): un apply
+  # posterior no tiene que volver el servicio a la task definition de Terraform.
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
 }
