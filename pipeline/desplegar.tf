@@ -22,11 +22,6 @@ locals {
 }
 
 # Creada y autorizada desde la consola (con la app instalada en la org tesis-entornos) e importada.
-import {
-  to = aws_codeconnections_connection.github
-  id = "arn:aws:codeconnections:us-east-2:491265021424:connection/6ca7b4c2-59bb-4607-83ce-4f41f9933ae3"
-}
-
 resource "aws_codeconnections_connection" "github" {
   name          = var.github_connection_name
   provider_type = "GitHub"
