@@ -9,6 +9,7 @@ Infraestructura del prototipo de la tesis sobre entornos efímeros vs. fijos, ge
 | `compartida/` | Recursos de la cuenta compartida (`582621604637`), región `us-east-2`: bucket de states y repositorios ECR. | Aplicada |
 | `estado/` | Bucket de states de cada cuenta de modelo (`tesis-entornos-tfstate-<account_id>`). Un state por modelo, en su propio bucket. | Fijo aplicado; efímero pendiente |
 | `base-modelo/` | Base de cada modelo (efímero / fijo). | Fijo aplicado (DNS, certificados, VPC, ALB, RDS, ElastiCache y ECS); efímero pendiente |
+| `pipeline/` | Pipeline de cada modelo (cuenta del modelo, key `pipeline/terraform.tfstate`): conexión de GitHub importada, credencial de CodeBuild y un proyecto de despliegue por repo de CD, disparado por cada push a `dev`. | Fijo aplicado (solo el disparo, sin despliegue); efímero pendiente |
 | `entorno/` | Entornos individuales sobre la base del modelo, un state por entorno (`entornos/<slug>/terraform.tfstate`). | Fijo compartido aplicado: backend y frontend |
 
 Cada capa es un root module independiente con su propio state.
