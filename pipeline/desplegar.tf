@@ -76,11 +76,12 @@ data "aws_iam_policy_document" "desplegar" {
   }
 
   # El bucket de buildspecs es de la compartida y su política ya da lectura a esta cuenta.
+  # Todos los prefijos (main/ y los de feature/), para probar buildspecs antes de mergear.
   statement {
     sid       = "LeerBuildspecs"
     effect    = "Allow"
     actions   = ["s3:GetObject"]
-    resources = ["arn:aws:s3:::${var.buildspecs_bucket}/${var.buildspecs_folder}/*"]
+    resources = ["arn:aws:s3:::${var.buildspecs_bucket}/*"]
   }
 
   statement {
