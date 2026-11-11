@@ -31,11 +31,12 @@ locals {
   ecs_log_group_arn       = "arn:aws:logs:${var.region}:${var.account_id}:log-group:/ecs/${var.modelo}"
 
   # Frontend del entorno compartido: bucket de entorno/ (tesis-<modelo>-<slug>-frontend-<cuenta>) y
-  # su distribución de CloudFront. Imágenes de los repos de ECR de la compartida.
+  # su distribución de CloudFront. Imágenes de los repos de ECR de la compartida (backend, frontend
+  # y la suite de Playwright).
   compartido_frontend_bucket_arn = "arn:aws:s3:::tesis-${local.compartido_name}-frontend-${var.account_id}"
   compartido_distribution_arn    = "arn:aws:cloudfront::${var.account_id}:distribution/${var.compartido_distribution_id}"
   ecr_repository_arns = [
-    for repo in ["tesis-backend", "tesis-frontend"] :
+    for repo in ["tesis-backend", "tesis-frontend", "tesis-playwright"] :
     "arn:aws:ecr:${var.region}:${var.compartida_account_id}:repository/${repo}"
   ]
 }

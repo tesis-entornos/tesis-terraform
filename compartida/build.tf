@@ -13,6 +13,13 @@ locals {
     for k, _ in local.build_repos :
     k => "arn:aws:logs:${var.region}:${var.account_id}:log-group:/codebuild/tesis-build-${k}"
   }
+
+  # Lo mismo para el repo de ECR: sin depender de aws_ecr_repository.this, la política no queda
+  # "known after apply" cuando se suma otro repo al for_each.
+  build_ecr_repository_arns = {
+    for k, repo in local.build_repos :
+    k => "arn:aws:ecr:${var.region}:${var.account_id}:repository/${repo}"
+  }
 }
 
 resource "aws_cloudwatch_log_group" "build" {
@@ -60,7 +67,7 @@ data "aws_iam_policy_document" "build" {
       "ecr:PutImage",
       "ecr:DescribeImages",
     ]
-    resources = [aws_ecr_repository.this[each.value].arn]
+    resources = [local.build_ecr_repository_arns[each.key]]
   }
 
   statement {
