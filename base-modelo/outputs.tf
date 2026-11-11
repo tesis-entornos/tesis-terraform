@@ -142,3 +142,8 @@ output "secrets_prefix" {
   description = "Prefijo de nombre de los secretos del modelo. El rol de ejecución puede leer todos los secretos con este prefijo"
   value       = local.secrets_prefix
 }
+
+output "registros_bucket" {
+  description = "Bucket de registros de las validaciones del modelo"
+  value       = aws_s3_bucket.registros.bucket
+}

@@ -40,6 +40,9 @@ locals {
   first_superuser_password_secret_name = "tesis/${var.modelo}/first-superuser-password"
   first_superuser_password_secret_arn  = "arn:aws:secretsmanager:${var.region}:${var.account_id}:secret:${local.first_superuser_password_secret_name}-??????"
 
+  # Bucket de registros del modelo (base-modelo/registros.tf): cada validación escribe el suyo.
+  registros_bucket_arn = "arn:aws:s3:::tesis-${var.modelo}-registros-${var.account_id}"
+
   ecr_repository_arns = [
     for repo in ["tesis-backend", "tesis-frontend", "tesis-playwright"] :
     "arn:aws:ecr:${var.region}:${var.compartida_account_id}:repository/${repo}"
@@ -210,6 +213,13 @@ data "aws_iam_policy_document" "desplegar" {
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
     resources = [local.first_superuser_password_secret_arn]
+  }
+
+  statement {
+    sid       = "EscribirRegistrosValidaciones"
+    effect    = "Allow"
+    actions   = ["s3:PutObject"]
+    resources = ["${local.registros_bucket_arn}/validaciones/*"]
   }
 
   # GetAuthorizationToken no admite restricción por recurso.
