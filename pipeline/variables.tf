@@ -44,3 +44,13 @@ variable "buildspecs_folder" {
     error_message = "buildspecs_folder es una ruta relativa sin barras al principio ni al final."
   }
 }
+
+variable "compartida_account_id" {
+  description = "ID de la cuenta compartida, dueña de los repositorios ECR de las imágenes"
+  type        = string
+}
+
+variable "compartido_distribution_id" {
+  description = "ID de la distribución de CloudFront del entorno compartido (output cloudfront_distribution_id de entorno/)"
+  type        = string
+}

@@ -29,6 +29,15 @@ locals {
   ecs_cluster_arn         = "${local.ecs_arn_prefix}:cluster/${local.ecs_cluster_name}"
   compartido_backend_name = "${local.compartido_name}-backend"
   ecs_log_group_arn       = "arn:aws:logs:${var.region}:${var.account_id}:log-group:/ecs/${var.modelo}"
+
+  # Frontend del entorno compartido: bucket de entorno/ (tesis-<modelo>-<slug>-frontend-<cuenta>) y
+  # su distribución de CloudFront. Imágenes de los repos de ECR de la compartida.
+  compartido_frontend_bucket_arn = "arn:aws:s3:::tesis-${local.compartido_name}-frontend-${var.account_id}"
+  compartido_distribution_arn    = "arn:aws:cloudfront::${var.account_id}:distribution/${var.compartido_distribution_id}"
+  ecr_repository_arns = [
+    for repo in ["tesis-backend", "tesis-frontend"] :
+    "arn:aws:ecr:${var.region}:${var.compartida_account_id}:repository/${repo}"
+  ]
 }
 
 # Creada y autorizada desde la consola (con la app instalada en la org tesis-entornos) e importada.
@@ -189,6 +198,65 @@ data "aws_iam_policy_document" "desplegar" {
     actions   = ["logs:GetLogEvents", "logs:FilterLogEvents"]
     resources = [local.ecs_log_group_arn, "${local.ecs_log_group_arn}:log-stream:*"]
   }
+
+  # GetAuthorizationToken no admite restricción por recurso.
+  statement {
+    sid       = "LoginEcr"
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  # Pull de las imágenes de la compartida (la política de los repos ya da lectura a esta cuenta).
+  statement {
+    sid    = "PullImagenesCompartida"
+    effect = "Allow"
+    actions = [
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchCheckLayerAvailability",
+    ]
+    resources = local.ecr_repository_arns
+  }
+
+  # Publicación del frontend del compartido: sync/cp/rm de aws s3.
+  statement {
+    sid       = "ListarBucketFrontend"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [local.compartido_frontend_bucket_arn]
+  }
+
+  statement {
+    sid       = "PublicarFrontend"
+    effect    = "Allow"
+    actions   = ["s3:PutObject", "s3:DeleteObject"]
+    resources = ["${local.compartido_frontend_bucket_arn}/*"]
+  }
+
+  # Registro del último despliegue del frontend en el bucket.
+  statement {
+    sid       = "LeerRegistroFrontend"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${local.compartido_frontend_bucket_arn}/_despliegue.json"]
+  }
+
+  # Invalidación de /* después de copiar, esperando Completed.
+  statement {
+    sid       = "InvalidarCloudFront"
+    effect    = "Allow"
+    actions   = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
+    resources = [local.compartido_distribution_arn]
+  }
+
+  # El script busca la distribución por alias; ListDistributions no admite restricción por recurso.
+  statement {
+    sid       = "ListarDistribuciones"
+    effect    = "Allow"
+    actions   = ["cloudfront:ListDistributions"]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "desplegar" {
@@ -226,6 +294,8 @@ resource "aws_codebuild_project" "desplegar" {
     type         = "ARM_CONTAINER"
     compute_type = "BUILD_GENERAL1_SMALL"
     image        = "aws/codebuild/amazonlinux-aarch64-standard:4.0"
+    # Docker: pull y cp de la imagen del frontend, y Playwright en los dos proyectos.
+    privileged_mode = true
 
     environment_variable {
       name  = "SERVICIO"
