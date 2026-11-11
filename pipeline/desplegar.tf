@@ -35,6 +35,11 @@ locals {
   # y la suite de Playwright).
   compartido_frontend_bucket_arn = "arn:aws:s3:::tesis-${local.compartido_name}-frontend-${var.account_id}"
   compartido_distribution_arn    = "arn:aws:cloudfront::${var.account_id}:distribution/${var.compartido_distribution_id}"
+  # Contraseña del superusuario (base-modelo/secretos.tf, texto plano, no JSON), para Playwright.
+  # ARN con el patrón de sufijo de Secrets Manager: sigue valiendo si la base recrea el secreto.
+  first_superuser_password_secret_name = "tesis/${var.modelo}/first-superuser-password"
+  first_superuser_password_secret_arn  = "arn:aws:secretsmanager:${var.region}:${var.account_id}:secret:${local.first_superuser_password_secret_name}-??????"
+
   ecr_repository_arns = [
     for repo in ["tesis-backend", "tesis-frontend", "tesis-playwright"] :
     "arn:aws:ecr:${var.region}:${var.compartida_account_id}:repository/${repo}"
@@ -200,6 +205,13 @@ data "aws_iam_policy_document" "desplegar" {
     resources = [local.ecs_log_group_arn, "${local.ecs_log_group_arn}:log-stream:*"]
   }
 
+  statement {
+    sid       = "LeerPasswordSuperusuario"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [local.first_superuser_password_secret_arn]
+  }
+
   # GetAuthorizationToken no admite restricción por recurso.
   statement {
     sid       = "LoginEcr"
@@ -308,6 +320,13 @@ resource "aws_codebuild_project" "desplegar" {
       name  = "GITHUB_CD_REPO"
       type  = "PLAINTEXT"
       value = each.value
+    }
+
+    # Para la suite Playwright después del despliegue.
+    environment_variable {
+      name  = "FIRST_SUPERUSER_PASSWORD"
+      type  = "SECRETS_MANAGER"
+      value = local.first_superuser_password_secret_name
     }
   }
 
