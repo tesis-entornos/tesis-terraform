@@ -19,6 +19,16 @@ locals {
   }
 
   desplegar_buildspec_arn = "arn:aws:s3:::${var.buildspecs_bucket}/${var.buildspecs_folder}/desplegar-${var.modelo}.yml"
+
+  # Recursos del backend del entorno compartido, con los nombres de base-modelo/ y entorno/
+  # (<modelo>-<slug>): el despliegue registra una task definition nueva, corre las migraciones
+  # como tarea one-off y actualiza el servicio.
+  ecs_arn_prefix          = "arn:aws:ecs:${var.region}:${var.account_id}"
+  compartido_name         = "${var.modelo}-compartido"
+  ecs_cluster_name        = "${var.modelo}-cluster"
+  ecs_cluster_arn         = "${local.ecs_arn_prefix}:cluster/${local.ecs_cluster_name}"
+  compartido_backend_name = "${local.compartido_name}-backend"
+  ecs_log_group_arn       = "arn:aws:logs:${var.region}:${var.account_id}:log-group:/ecs/${var.modelo}"
 }
 
 # Creada y autorizada desde la consola (con la app instalada en la org tesis-entornos) e importada.
@@ -89,6 +99,95 @@ data "aws_iam_policy_document" "desplegar" {
     effect    = "Allow"
     actions   = ["codeconnections:GetConnection", "codeconnections:GetConnectionToken"]
     resources = [aws_codeconnections_connection.github.arn]
+  }
+
+  statement {
+    sid       = "ActualizarServicioBackend"
+    effect    = "Allow"
+    actions   = ["ecs:DescribeServices", "ecs:UpdateService"]
+    resources = ["${local.ecs_arn_prefix}:service/${local.ecs_cluster_name}/${local.compartido_backend_name}"]
+  }
+
+  # DescribeTaskDefinition y RegisterTaskDefinition no admiten restricción por recurso.
+  statement {
+    sid       = "RegistrarTaskDefinition"
+    effect    = "Allow"
+    actions   = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition"]
+    resources = ["*"]
+  }
+
+  # La task definition se registra con sus tags (default_tags de entorno/): solo al registrarla.
+  statement {
+    sid       = "EtiquetarTaskDefinition"
+    effect    = "Allow"
+    actions   = ["ecs:TagResource"]
+    resources = ["${local.ecs_arn_prefix}:task-definition/${local.compartido_backend_name}:*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ecs:CreateAction"
+      values   = ["RegisterTaskDefinition"]
+    }
+  }
+
+  # Tarea one-off de migraciones con la task definition del backend, solo en el cluster del modelo.
+  statement {
+    sid       = "CorrerMigraciones"
+    effect    = "Allow"
+    actions   = ["ecs:RunTask"]
+    resources = ["${local.ecs_arn_prefix}:task-definition/${local.compartido_backend_name}:*"]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "ecs:cluster"
+      values   = [local.ecs_cluster_arn]
+    }
+  }
+
+  # El run-task de migraciones usa --propagate-tags TASK_DEFINITION: solo al lanzar la tarea.
+  statement {
+    sid       = "EtiquetarTareas"
+    effect    = "Allow"
+    actions   = ["ecs:TagResource"]
+    resources = ["${local.ecs_arn_prefix}:task/${local.ecs_cluster_name}/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ecs:CreateAction"
+      values   = ["RunTask"]
+    }
+  }
+
+  statement {
+    sid       = "SeguirTareas"
+    effect    = "Allow"
+    actions   = ["ecs:DescribeTasks", "ecs:StopTask"]
+    resources = ["${local.ecs_arn_prefix}:task/${local.ecs_cluster_name}/*"]
+  }
+
+  statement {
+    sid     = "PasarRolesBackend"
+    effect  = "Allow"
+    actions = ["iam:PassRole"]
+    resources = [
+      "arn:aws:iam::${var.account_id}:role/${var.modelo}-ecs-execution",
+      "arn:aws:iam::${var.account_id}:role/${local.compartido_name}-task",
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["ecs-tasks.amazonaws.com"]
+    }
+  }
+
+  # Para imprimir la salida de la migración: FilterLogEvents es sobre el log group y GetLogEvents
+  # sobre los streams.
+  statement {
+    sid       = "LeerLogsEcs"
+    effect    = "Allow"
+    actions   = ["logs:GetLogEvents", "logs:FilterLogEvents"]
+    resources = [local.ecs_log_group_arn, "${local.ecs_log_group_arn}:log-stream:*"]
   }
 }
 
