@@ -391,12 +391,42 @@ resource "aws_codebuild_project" "desplegar" {
   source {
     type            = "GITHUB"
     location        = "https://github.com/tesis-entornos/${each.value}.git"
-    git_clone_depth = 1
+    git_clone_depth = var.git_clone_depth_principal
     buildspec       = local.desplegar_buildspec_arn
 
     auth {
       type     = "CODECONNECTIONS"
       resource = aws_codeconnections_connection.github.arn
+    }
+  }
+
+  # Fuentes secundarias del proyecto (efímero: el código de entorno/ fijado a un commit y el repo de
+  # CD del otro servicio en main), con la misma conexión. Cada una queda en
+  # $CODEBUILD_SRC_DIR_<source_identifier>. El repo propio no puede ser secundaria (CodeBuild
+  # rechaza dos fuentes con la misma location): su main se lee del clon completo de la principal
+  # (git_clone_depth_principal = 0, git show origin/main:tag.json).
+  dynamic "secondary_sources" {
+    for_each = lookup(var.fuentes_secundarias, each.key, [])
+
+    content {
+      type              = "GITHUB"
+      source_identifier = secondary_sources.value.source_identifier
+      location          = "https://github.com/tesis-entornos/${secondary_sources.value.repo}.git"
+      git_clone_depth   = 1
+
+      auth {
+        type     = "CODECONNECTIONS"
+        resource = aws_codeconnections_connection.github.arn
+      }
+    }
+  }
+
+  dynamic "secondary_source_version" {
+    for_each = lookup(var.fuentes_secundarias, each.key, [])
+
+    content {
+      source_identifier = secondary_source_version.value.source_identifier
+      source_version    = secondary_source_version.value.version
     }
   }
 

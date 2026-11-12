@@ -95,3 +95,24 @@ variable "descripcion_disparo" {
   description = "Parte de la descripción de los proyectos: qué los dispara"
   type        = string
 }
+
+variable "fuentes_secundarias" {
+  description = "Fuentes secundarias por proyecto (clave backend / frontend): repos de tesis-entornos por la misma conexión, con source_identifier, repo y versión (rama o commit SHA). No puede incluir el repo de la fuente principal"
+  type = map(list(object({
+    source_identifier = string
+    repo              = string
+    version           = string
+  })))
+  default = {}
+
+  validation {
+    condition     = alltrue([for k, fs in var.fuentes_secundarias : contains(["backend", "frontend"], k) && alltrue([for f in fs : can(regex("^[A-Za-z0-9_]{1,128}$", f.source_identifier)) && f.repo != "tesis-${k}-cd"])])
+    error_message = "Las claves son backend / frontend; source_identifier solo admite letras, números y guion bajo (hasta 128); y el repo de CD del propio proyecto no puede ser fuente secundaria."
+  }
+}
+
+variable "git_clone_depth_principal" {
+  description = "Profundidad del clon de la fuente principal (repo de CD). 1: solo el commit del disparo; 0: clon completo, con origin/main (para leer su tag.json)"
+  type        = number
+  default     = 1
+}

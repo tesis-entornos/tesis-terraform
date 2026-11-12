@@ -20,3 +20,19 @@ secreto_superusuario           = false
 
 descripcion_destino = "en entornos efímeros"
 descripcion_disparo = "en cada push a release/c<N>-<n> o hotfix/c<N>-<n>"
+
+# Fuentes secundarias por proyecto: entorno/ de tesis-terraform fijado a un commit (actualizar cuando
+# cambie entorno/) y el repo de CD del otro servicio en main (su tag.json: imagen de producción).
+# El tag.json de main del propio repo sale del clon completo de la principal (profundidad 0).
+git_clone_depth_principal = 0
+
+fuentes_secundarias = {
+  backend = [
+    { source_identifier = "terraform", repo = "tesis-terraform", version = "56afcc0ba505f4a527adf35392b934598aafbe12" },
+    { source_identifier = "frontend_cd_main", repo = "tesis-frontend-cd", version = "main" },
+  ]
+  frontend = [
+    { source_identifier = "terraform", repo = "tesis-terraform", version = "56afcc0ba505f4a527adf35392b934598aafbe12" },
+    { source_identifier = "backend_cd_main", repo = "tesis-backend-cd", version = "main" },
+  ]
+}
