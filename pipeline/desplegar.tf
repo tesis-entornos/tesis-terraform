@@ -1,8 +1,10 @@
-# Pipeline del modelo: un proyecto de CodeBuild por repo de CD. Cada push a la rama dev de
-# tesis-backend-cd / tesis-frontend-cd (el entorno compartido del modelo) dispara el proyecto de ese
-# servicio, que ejecuta desplegar-<modelo>.yml del bucket de buildspecs de la compartida.
+# Pipeline del modelo: un proyecto de CodeBuild por repo de CD. Cada push a una rama que cumpla
+# webhook_head_ref_pattern de tesis-backend-cd / tesis-frontend-cd dispara el proyecto de ese
+# servicio, que ejecuta desplegar-<modelo>.yml del bucket de buildspecs de la compartida
+# (fijo: dev, el entorno compartido; efímero: release/c<N>-<n> y hotfix/c<N>-<n>).
 # Mismo patrón que el build único de compartida/ (conexión importada, credencial de cuenta, rol,
-# webhook y depends_on).
+# webhook y depends_on). Los permisos del despliegue al entorno compartido y el secreto del
+# superusuario se activan por modelo (permisos_despliegue_compartido, secreto_superusuario).
 
 locals {
   desplegar_repos = {
@@ -34,7 +36,7 @@ locals {
   # su distribución de CloudFront. Imágenes de los repos de ECR de la compartida (backend, frontend
   # y la suite de Playwright).
   compartido_frontend_bucket_arn = "arn:aws:s3:::tesis-${local.compartido_name}-frontend-${var.account_id}"
-  compartido_distribution_arn    = "arn:aws:cloudfront::${var.account_id}:distribution/${var.compartido_distribution_id}"
+  compartido_distribution_arn    = var.compartido_distribution_id == null ? null : "arn:aws:cloudfront::${var.account_id}:distribution/${var.compartido_distribution_id}"
   # Contraseña del superusuario (base-modelo/secretos.tf, texto plano, no JSON), para Playwright.
   # ARN con el patrón de sufijo de Secrets Manager: sigue valiendo si la base recrea el secreto.
   first_superuser_password_secret_name = "tesis/${var.modelo}/first-superuser-password"
@@ -43,6 +45,10 @@ locals {
   # Bucket de registros del modelo (base-modelo/registros.tf): cada validación escribe el suyo.
   registros_bucket_arn = "arn:aws:s3:::tesis-${var.modelo}-registros-${var.account_id}"
 
+  # for_each de los statements opcionales de la política: una vez o ninguna.
+  con_despliegue_compartido = var.permisos_despliegue_compartido ? toset(["on"]) : toset([])
+  con_secreto_superusuario  = var.secreto_superusuario ? toset(["on"]) : toset([])
+
   ecr_repository_arns = [
     for repo in ["tesis-backend", "tesis-frontend", "tesis-playwright"] :
     "arn:aws:ecr:${var.region}:${var.compartida_account_id}:repository/${repo}"
@@ -50,9 +56,26 @@ locals {
 }
 
 # Creada y autorizada desde la consola (con la app instalada en la org tesis-entornos) e importada.
+# importar_conexion = true en el primer apply del modelo (la conexión ya existe y no está en el
+# state); false después.
+import {
+  for_each = var.importar_conexion ? toset([var.github_connection_arn]) : toset([])
+  to       = aws_codeconnections_connection.github
+  id       = each.value
+}
+
 resource "aws_codeconnections_connection" "github" {
   name          = var.github_connection_name
   provider_type = "GitHub"
+
+  # La política del rol usa var.github_connection_arn (conocido en el plan, también en el primer
+  # apply, cuando la conexión se está importando): tiene que ser esta conexión.
+  lifecycle {
+    postcondition {
+      condition     = self.arn == var.github_connection_arn
+      error_message = "github_connection_arn no es el ARN de la conexión ${var.github_connection_name}."
+    }
+  }
 }
 
 # Credencial de GitHub a nivel cuenta apuntando a la conexión. Sin ella, la validación de CodeBuild
@@ -116,169 +139,237 @@ data "aws_iam_policy_document" "desplegar" {
     sid       = "UsarConexionGitHub"
     effect    = "Allow"
     actions   = ["codeconnections:GetConnection", "codeconnections:GetConnectionToken"]
-    resources = [aws_codeconnections_connection.github.arn]
+    resources = [var.github_connection_arn]
   }
 
-  statement {
-    sid       = "ActualizarServicioBackend"
-    effect    = "Allow"
-    actions   = ["ecs:DescribeServices", "ecs:UpdateService"]
-    resources = ["${local.ecs_arn_prefix}:service/${local.ecs_cluster_name}/${local.compartido_backend_name}"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "ActualizarServicioBackend"
+      effect    = "Allow"
+      actions   = ["ecs:DescribeServices", "ecs:UpdateService"]
+      resources = ["${local.ecs_arn_prefix}:service/${local.ecs_cluster_name}/${local.compartido_backend_name}"]
+    }
   }
 
   # DescribeTaskDefinition y RegisterTaskDefinition no admiten restricción por recurso.
-  statement {
-    sid       = "RegistrarTaskDefinition"
-    effect    = "Allow"
-    actions   = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition"]
-    resources = ["*"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "RegistrarTaskDefinition"
+      effect    = "Allow"
+      actions   = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition"]
+      resources = ["*"]
+    }
   }
 
   # La task definition se registra con sus tags (default_tags de entorno/): solo al registrarla.
-  statement {
-    sid       = "EtiquetarTaskDefinition"
-    effect    = "Allow"
-    actions   = ["ecs:TagResource"]
-    resources = ["${local.ecs_arn_prefix}:task-definition/${local.compartido_backend_name}:*"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
 
-    condition {
-      test     = "StringEquals"
-      variable = "ecs:CreateAction"
-      values   = ["RegisterTaskDefinition"]
+    content {
+      sid       = "EtiquetarTaskDefinition"
+      effect    = "Allow"
+      actions   = ["ecs:TagResource"]
+      resources = ["${local.ecs_arn_prefix}:task-definition/${local.compartido_backend_name}:*"]
+
+      condition {
+        test     = "StringEquals"
+        variable = "ecs:CreateAction"
+        values   = ["RegisterTaskDefinition"]
+      }
     }
   }
 
   # Tarea one-off de migraciones con la task definition del backend, solo en el cluster del modelo.
-  statement {
-    sid       = "CorrerMigraciones"
-    effect    = "Allow"
-    actions   = ["ecs:RunTask"]
-    resources = ["${local.ecs_arn_prefix}:task-definition/${local.compartido_backend_name}:*"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
 
-    condition {
-      test     = "ArnEquals"
-      variable = "ecs:cluster"
-      values   = [local.ecs_cluster_arn]
+    content {
+      sid       = "CorrerMigraciones"
+      effect    = "Allow"
+      actions   = ["ecs:RunTask"]
+      resources = ["${local.ecs_arn_prefix}:task-definition/${local.compartido_backend_name}:*"]
+
+      condition {
+        test     = "ArnEquals"
+        variable = "ecs:cluster"
+        values   = [local.ecs_cluster_arn]
+      }
     }
   }
 
   # El run-task de migraciones usa --propagate-tags TASK_DEFINITION: solo al lanzar la tarea.
-  statement {
-    sid       = "EtiquetarTareas"
-    effect    = "Allow"
-    actions   = ["ecs:TagResource"]
-    resources = ["${local.ecs_arn_prefix}:task/${local.ecs_cluster_name}/*"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
 
-    condition {
-      test     = "StringEquals"
-      variable = "ecs:CreateAction"
-      values   = ["RunTask"]
+    content {
+      sid       = "EtiquetarTareas"
+      effect    = "Allow"
+      actions   = ["ecs:TagResource"]
+      resources = ["${local.ecs_arn_prefix}:task/${local.ecs_cluster_name}/*"]
+
+      condition {
+        test     = "StringEquals"
+        variable = "ecs:CreateAction"
+        values   = ["RunTask"]
+      }
     }
   }
 
-  statement {
-    sid       = "SeguirTareas"
-    effect    = "Allow"
-    actions   = ["ecs:DescribeTasks", "ecs:StopTask"]
-    resources = ["${local.ecs_arn_prefix}:task/${local.ecs_cluster_name}/*"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "SeguirTareas"
+      effect    = "Allow"
+      actions   = ["ecs:DescribeTasks", "ecs:StopTask"]
+      resources = ["${local.ecs_arn_prefix}:task/${local.ecs_cluster_name}/*"]
+    }
   }
 
-  statement {
-    sid     = "PasarRolesBackend"
-    effect  = "Allow"
-    actions = ["iam:PassRole"]
-    resources = [
-      "arn:aws:iam::${var.account_id}:role/${var.modelo}-ecs-execution",
-      "arn:aws:iam::${var.account_id}:role/${local.compartido_name}-task",
-    ]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
 
-    condition {
-      test     = "StringEquals"
-      variable = "iam:PassedToService"
-      values   = ["ecs-tasks.amazonaws.com"]
+    content {
+      sid     = "PasarRolesBackend"
+      effect  = "Allow"
+      actions = ["iam:PassRole"]
+      resources = [
+        "arn:aws:iam::${var.account_id}:role/${var.modelo}-ecs-execution",
+        "arn:aws:iam::${var.account_id}:role/${local.compartido_name}-task",
+      ]
+
+      condition {
+        test     = "StringEquals"
+        variable = "iam:PassedToService"
+        values   = ["ecs-tasks.amazonaws.com"]
+      }
     }
   }
 
   # Para imprimir la salida de la migración: FilterLogEvents es sobre el log group y GetLogEvents
   # sobre los streams.
-  statement {
-    sid       = "LeerLogsEcs"
-    effect    = "Allow"
-    actions   = ["logs:GetLogEvents", "logs:FilterLogEvents"]
-    resources = [local.ecs_log_group_arn, "${local.ecs_log_group_arn}:log-stream:*"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "LeerLogsEcs"
+      effect    = "Allow"
+      actions   = ["logs:GetLogEvents", "logs:FilterLogEvents"]
+      resources = [local.ecs_log_group_arn, "${local.ecs_log_group_arn}:log-stream:*"]
+    }
   }
 
-  statement {
-    sid       = "LeerPasswordSuperusuario"
-    effect    = "Allow"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [local.first_superuser_password_secret_arn]
+  dynamic "statement" {
+    for_each = local.con_secreto_superusuario
+
+    content {
+      sid       = "LeerPasswordSuperusuario"
+      effect    = "Allow"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = [local.first_superuser_password_secret_arn]
+    }
   }
 
-  statement {
-    sid       = "EscribirRegistrosValidaciones"
-    effect    = "Allow"
-    actions   = ["s3:PutObject"]
-    resources = ["${local.registros_bucket_arn}/validaciones/*"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "EscribirRegistrosValidaciones"
+      effect    = "Allow"
+      actions   = ["s3:PutObject"]
+      resources = ["${local.registros_bucket_arn}/validaciones/*"]
+    }
   }
 
   # GetAuthorizationToken no admite restricción por recurso.
-  statement {
-    sid       = "LoginEcr"
-    effect    = "Allow"
-    actions   = ["ecr:GetAuthorizationToken"]
-    resources = ["*"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "LoginEcr"
+      effect    = "Allow"
+      actions   = ["ecr:GetAuthorizationToken"]
+      resources = ["*"]
+    }
   }
 
   # Pull de las imágenes de la compartida (la política de los repos ya da lectura a esta cuenta).
-  statement {
-    sid    = "PullImagenesCompartida"
-    effect = "Allow"
-    actions = [
-      "ecr:BatchGetImage",
-      "ecr:GetDownloadUrlForLayer",
-      "ecr:BatchCheckLayerAvailability",
-    ]
-    resources = local.ecr_repository_arns
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid    = "PullImagenesCompartida"
+      effect = "Allow"
+      actions = [
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchCheckLayerAvailability",
+      ]
+      resources = local.ecr_repository_arns
+    }
   }
 
   # Publicación del frontend del compartido: sync/cp/rm de aws s3.
-  statement {
-    sid       = "ListarBucketFrontend"
-    effect    = "Allow"
-    actions   = ["s3:ListBucket"]
-    resources = [local.compartido_frontend_bucket_arn]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "ListarBucketFrontend"
+      effect    = "Allow"
+      actions   = ["s3:ListBucket"]
+      resources = [local.compartido_frontend_bucket_arn]
+    }
   }
 
-  statement {
-    sid       = "PublicarFrontend"
-    effect    = "Allow"
-    actions   = ["s3:PutObject", "s3:DeleteObject"]
-    resources = ["${local.compartido_frontend_bucket_arn}/*"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "PublicarFrontend"
+      effect    = "Allow"
+      actions   = ["s3:PutObject", "s3:DeleteObject"]
+      resources = ["${local.compartido_frontend_bucket_arn}/*"]
+    }
   }
 
   # Registro del último despliegue del frontend en el bucket.
-  statement {
-    sid       = "LeerRegistroFrontend"
-    effect    = "Allow"
-    actions   = ["s3:GetObject"]
-    resources = ["${local.compartido_frontend_bucket_arn}/_despliegue.json"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "LeerRegistroFrontend"
+      effect    = "Allow"
+      actions   = ["s3:GetObject"]
+      resources = ["${local.compartido_frontend_bucket_arn}/_despliegue.json"]
+    }
   }
 
   # Invalidación de /* después de copiar, esperando Completed.
-  statement {
-    sid       = "InvalidarCloudFront"
-    effect    = "Allow"
-    actions   = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
-    resources = [local.compartido_distribution_arn]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "InvalidarCloudFront"
+      effect    = "Allow"
+      actions   = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
+      resources = [local.compartido_distribution_arn]
+    }
   }
 
   # El script busca la distribución por alias; ListDistributions no admite restricción por recurso.
-  statement {
-    sid       = "ListarDistribuciones"
-    effect    = "Allow"
-    actions   = ["cloudfront:ListDistributions"]
-    resources = ["*"]
+  dynamic "statement" {
+    for_each = local.con_despliegue_compartido
+
+    content {
+      sid       = "ListarDistribuciones"
+      effect    = "Allow"
+      actions   = ["cloudfront:ListDistributions"]
+      resources = ["*"]
+    }
   }
 }
 
@@ -292,7 +383,7 @@ resource "aws_codebuild_project" "desplegar" {
   for_each = local.desplegar_repos
 
   name          = "${local.desplegar_name}-${each.key}"
-  description   = "Despliegue de ${each.key} en el entorno compartido del ${var.modelo}: en cada push a dev de ${each.value}"
+  description   = "Despliegue de ${each.key} ${var.descripcion_destino}: ${var.descripcion_disparo} de ${each.value}"
   service_role  = aws_iam_role.desplegar.arn
   build_timeout = 60
   # Sin concurrent_build_limit: con límite, los builds que lo superan fallan en vez de esperar.
@@ -333,10 +424,14 @@ resource "aws_codebuild_project" "desplegar" {
     }
 
     # Para la suite Playwright después del despliegue.
-    environment_variable {
-      name  = "FIRST_SUPERUSER_PASSWORD"
-      type  = "SECRETS_MANAGER"
-      value = local.first_superuser_password_secret_name
+    dynamic "environment_variable" {
+      for_each = local.con_secreto_superusuario
+
+      content {
+        name  = "FIRST_SUPERUSER_PASSWORD"
+        type  = "SECRETS_MANAGER"
+        value = local.first_superuser_password_secret_name
+      }
     }
   }
 
@@ -354,7 +449,7 @@ resource "aws_codebuild_project" "desplegar" {
   ]
 }
 
-# Cualquier push a dev dispara, sin filtrar por archivo.
+# Cualquier push a una rama que cumpla webhook_head_ref_pattern dispara, sin filtrar por archivo.
 resource "aws_codebuild_webhook" "desplegar" {
   for_each = local.desplegar_repos
 
@@ -369,7 +464,7 @@ resource "aws_codebuild_webhook" "desplegar" {
 
     filter {
       type    = "HEAD_REF"
-      pattern = "^refs/heads/dev$"
+      pattern = var.webhook_head_ref_pattern
     }
   }
 }
