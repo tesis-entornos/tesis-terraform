@@ -50,6 +50,9 @@ locals {
   con_secreto_superusuario  = var.secreto_superusuario ? toset(["on"]) : toset([])
   con_serializacion         = var.permisos_serializacion ? toset(["on"]) : toset([])
 
+  # Bucket de states del modelo (estado/: tesis-entornos-tfstate-<cuenta>).
+  tfstate_bucket_arn = "arn:aws:s3:::tesis-entornos-tfstate-${var.account_id}"
+
   # ARN de los proyectos armados desde el nombre (para la política, sin depender de los proyectos).
   desplegar_project_arns = [
     for k in sort(keys(local.desplegar_repos)) :
@@ -389,6 +392,36 @@ data "aws_iam_policy_document" "desplegar" {
       effect    = "Allow"
       actions   = ["codebuild:ListBuildsForProject", "codebuild:BatchGetBuilds"]
       resources = local.desplegar_project_arns
+    }
+  }
+
+  # Marcas de turno de la serialización: entornos/<slug>/turnos/<build-id>.json en el bucket de
+  # states del modelo. Cada build escribe la suya y lee las de su slug.
+  dynamic "statement" {
+    for_each = local.con_serializacion
+
+    content {
+      sid       = "EscribirTurnos"
+      effect    = "Allow"
+      actions   = ["s3:PutObject", "s3:GetObject"]
+      resources = ["${local.tfstate_bucket_arn}/entornos/*/turnos/*"]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = local.con_serializacion
+
+    content {
+      sid       = "ListarTurnos"
+      effect    = "Allow"
+      actions   = ["s3:ListBucket"]
+      resources = [local.tfstate_bucket_arn]
+
+      condition {
+        test     = "StringLike"
+        variable = "s3:prefix"
+        values   = ["entornos/*"]
+      }
     }
   }
 }
