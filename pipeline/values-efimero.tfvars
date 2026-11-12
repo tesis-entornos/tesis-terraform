@@ -18,6 +18,11 @@ webhook_head_ref_pattern = "^refs/heads/(release|hotfix)/c[0-9]+-[0-9]+$"
 permisos_despliegue_compartido = false
 secreto_superusuario           = false
 
+# Serialización por entorno: cada build espera (sondeo cada 15 s, hasta 60 min) a los builds de su
+# misma rama que arrancaron antes; el timeout cubre la espera más el despliegue.
+permisos_serializacion = true
+timeout_minutos        = 120
+
 descripcion_destino = "en entornos efímeros"
 descripcion_disparo = "en cada push a release/c<N>-<n> o hotfix/c<N>-<n>"
 

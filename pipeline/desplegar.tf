@@ -48,6 +48,13 @@ locals {
   # for_each de los statements opcionales de la política: una vez o ninguna.
   con_despliegue_compartido = var.permisos_despliegue_compartido ? toset(["on"]) : toset([])
   con_secreto_superusuario  = var.secreto_superusuario ? toset(["on"]) : toset([])
+  con_serializacion         = var.permisos_serializacion ? toset(["on"]) : toset([])
+
+  # ARN de los proyectos armados desde el nombre (para la política, sin depender de los proyectos).
+  desplegar_project_arns = [
+    for k in sort(keys(local.desplegar_repos)) :
+    "arn:aws:codebuild:${var.region}:${var.account_id}:project/${local.desplegar_name}-${k}"
+  ]
 
   ecr_repository_arns = [
     for repo in ["tesis-backend", "tesis-frontend", "tesis-playwright"] :
@@ -371,6 +378,19 @@ data "aws_iam_policy_document" "desplegar" {
       resources = ["*"]
     }
   }
+
+  # Serialización por entorno: cada build lista los builds en curso de los proyectos del modelo y
+  # espera a los de su misma rama que arrancaron antes.
+  dynamic "statement" {
+    for_each = local.con_serializacion
+
+    content {
+      sid       = "SerializarBuilds"
+      effect    = "Allow"
+      actions   = ["codebuild:ListBuildsForProject", "codebuild:BatchGetBuilds"]
+      resources = local.desplegar_project_arns
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "desplegar" {
@@ -385,7 +405,7 @@ resource "aws_codebuild_project" "desplegar" {
   name          = "${local.desplegar_name}-${each.key}"
   description   = "Despliegue de ${each.key} ${var.descripcion_destino}: ${var.descripcion_disparo} de ${each.value}"
   service_role  = aws_iam_role.desplegar.arn
-  build_timeout = 60
+  build_timeout = var.timeout_minutos
   # Sin concurrent_build_limit: con límite, los builds que lo superan fallan en vez de esperar.
 
   source {

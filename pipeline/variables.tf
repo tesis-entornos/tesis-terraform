@@ -116,3 +116,20 @@ variable "git_clone_depth_principal" {
   type        = number
   default     = 1
 }
+
+variable "permisos_serializacion" {
+  description = "Si el rol puede listar y leer los builds de los proyectos del modelo (serialización por entorno: cada build espera a los de su misma rama que arrancaron antes)"
+  type        = bool
+  default     = false
+}
+
+variable "timeout_minutos" {
+  description = "Timeout de los builds de despliegue, en minutos (incluye la espera de la serialización)"
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.timeout_minutos >= 5 && var.timeout_minutos <= 2160
+    error_message = "timeout_minutos tiene que estar entre 5 y 2160 (límite de CodeBuild)."
+  }
+}
