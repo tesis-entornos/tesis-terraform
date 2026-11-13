@@ -432,6 +432,16 @@ resource "aws_iam_role_policy" "desplegar" {
   policy = data.aws_iam_policy_document.desplegar.json
 }
 
+# rol_administrador: AdministratorAccess en el rol de despliegue. Efímero: los builds corren
+# Terraform de entorno/ (crean y destruyen entornos completos) en una cuenta aislada. Diferencia
+# declarada con producción, donde el rol tendría solo los permisos de los recursos del entorno.
+resource "aws_iam_role_policy_attachment" "desplegar_admin" {
+  count = var.rol_administrador ? 1 : 0
+
+  role       = aws_iam_role.desplegar.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
 resource "aws_codebuild_project" "desplegar" {
   for_each = local.desplegar_repos
 

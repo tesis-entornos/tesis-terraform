@@ -133,3 +133,9 @@ variable "timeout_minutos" {
     error_message = "timeout_minutos tiene que estar entre 5 y 2160 (límite de CodeBuild)."
   }
 }
+
+variable "rol_administrador" {
+  description = "Si el rol de despliegue tiene AdministratorAccess (efímero: corre Terraform de entorno/ en una cuenta aislada; diferencia declarada con producción)"
+  type        = bool
+  default     = false
+}

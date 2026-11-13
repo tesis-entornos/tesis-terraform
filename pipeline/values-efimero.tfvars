@@ -23,6 +23,10 @@ secreto_superusuario           = false
 permisos_serializacion = true
 timeout_minutos        = 120
 
+# El rol corre Terraform de entorno/ en una cuenta aislada: AdministratorAccess (diferencia con
+# producción, declarada).
+rol_administrador = true
+
 descripcion_destino = "en entornos efímeros"
 descripcion_disparo = "en cada push a release/c<N>-<n> o hotfix/c<N>-<n>"
 
@@ -33,11 +37,11 @@ git_clone_depth_principal = 0
 
 fuentes_secundarias = {
   backend = [
-    { source_identifier = "terraform", repo = "tesis-terraform", version = "56afcc0ba505f4a527adf35392b934598aafbe12" },
+    { source_identifier = "terraform", repo = "tesis-terraform", version = "47032ae0df2c7b9ccbd9b7930565a157ef535ed1" },
     { source_identifier = "frontend_cd_main", repo = "tesis-frontend-cd", version = "main" },
   ]
   frontend = [
-    { source_identifier = "terraform", repo = "tesis-terraform", version = "56afcc0ba505f4a527adf35392b934598aafbe12" },
+    { source_identifier = "terraform", repo = "tesis-terraform", version = "47032ae0df2c7b9ccbd9b7930565a157ef535ed1" },
     { source_identifier = "backend_cd_main", repo = "tesis-backend-cd", version = "main" },
   ]
 }
