@@ -35,6 +35,17 @@ variable "slug" {
   }
 }
 
+variable "corrida" {
+  description = "Corrida del experimento (c<N>) a la que pertenece el entorno. Valor del tag corrida; null: sin tag corrida"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.corrida == null || can(regex("^c[0-9]+$", var.corrida))
+    error_message = "corrida tiene que ser c<N> (por ejemplo, c0) o null."
+  }
+}
+
 variable "n" {
   description = "Número del entorno dentro del modelo (1 a 99). Define la prioridad de su regla en el listener del ALB (n * 10)"
   type        = number
