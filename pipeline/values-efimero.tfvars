@@ -14,9 +14,10 @@ buildspecs_folder = "main"
 
 webhook_head_ref_pattern = "^refs/heads/(release|hotfix)/c[0-9]+-[0-9]+$"
 
-# Paso 3 (disparo): sin permisos de despliegue ni secreto del superusuario (pasos 4 y 5).
+# Sin permisos de despliegue en la compartida. Secreto del superusuario para la suite Playwright
+# (tesis/efimero/first-superuser-password, creado por base-modelo/).
 permisos_despliegue_compartido = false
-secreto_superusuario           = false
+secreto_superusuario           = true
 
 # Serialización por entorno: cada build espera (sondeo cada 15 s, hasta 60 min) a los builds de su
 # misma rama que arrancaron antes; el timeout cubre la espera más el despliegue.
