@@ -206,4 +206,11 @@ resource "aws_codebuild_webhook" "build" {
       pattern = "^refs/heads/(release|hotfix)/.+$"
     }
   }
+
+  # Sin esto, CodeBuild aplica ALL_PULL_REQUESTS a los webhooks nuevos: los PR de quien no tenga un
+  # rol aprobador (por defecto admin, maintain o write) fallan hasta que alguien comente
+  # /codebuild_run(<sha>). DISABLED: el build corre en cada PR, sin aprobación por comentario.
+  pull_request_build_policy {
+    requires_comment_approval = "DISABLED"
+  }
 }
