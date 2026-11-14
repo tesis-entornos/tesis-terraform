@@ -97,17 +97,34 @@ variable "descripcion_disparo" {
 }
 
 variable "fuentes_secundarias" {
-  description = "Fuentes secundarias por proyecto (clave backend / frontend): repos de tesis-entornos por la misma conexión, con source_identifier, repo y versión (rama o commit SHA). No puede incluir el repo de la fuente principal"
+  description = "Fuentes secundarias de los proyectos de despliegue (clave backend / frontend): repos de tesis-entornos por la misma conexión, con source_identifier, repo, versión (rama o commit SHA) y profundidad del clon (git_clone_depth, default 1; 0: clon completo). No puede incluir el repo de la fuente principal"
   type = map(list(object({
     source_identifier = string
     repo              = string
     version           = string
+    git_clone_depth   = optional(number, 1)
   })))
   default = {}
 
   validation {
-    condition     = alltrue([for k, fs in var.fuentes_secundarias : contains(["backend", "frontend"], k) && alltrue([for f in fs : can(regex("^[A-Za-z0-9_]{1,128}$", f.source_identifier)) && f.repo != "tesis-${k}-cd"])])
-    error_message = "Las claves son backend / frontend; source_identifier solo admite letras, números y guion bajo (hasta 128); y el repo de CD del propio proyecto no puede ser fuente secundaria."
+    condition     = alltrue([for k, fs in var.fuentes_secundarias : contains(["backend", "frontend"], k) && alltrue([for f in fs : can(regex("^[A-Za-z0-9_]{1,128}$", f.source_identifier)) && f.repo != "tesis-${k}-cd" && f.git_clone_depth >= 0])])
+    error_message = "Las claves son backend / frontend; source_identifier solo admite letras, números y guion bajo (hasta 128); el repo de CD del propio proyecto no puede ser fuente secundaria; y git_clone_depth es 0 o más."
+  }
+}
+
+variable "fuentes_secundarias_cierre" {
+  description = "Fuentes secundarias de los proyectos de cierre (proyectos_cierre), con la misma forma y reglas que fuentes_secundarias"
+  type = map(list(object({
+    source_identifier = string
+    repo              = string
+    version           = string
+    git_clone_depth   = optional(number, 1)
+  })))
+  default = {}
+
+  validation {
+    condition     = alltrue([for k, fs in var.fuentes_secundarias_cierre : contains(["backend", "frontend"], k) && alltrue([for f in fs : can(regex("^[A-Za-z0-9_]{1,128}$", f.source_identifier)) && f.repo != "tesis-${k}-cd" && f.git_clone_depth >= 0])])
+    error_message = "Las claves son backend / frontend; source_identifier solo admite letras, números y guion bajo (hasta 128); el repo de CD del propio proyecto no puede ser fuente secundaria; y git_clone_depth es 0 o más."
   }
 }
 
@@ -138,4 +155,15 @@ variable "rol_administrador" {
   description = "Si el rol de despliegue tiene AdministratorAccess (efímero: corre Terraform de entorno/ en una cuenta aislada; diferencia declarada con producción)"
   type        = bool
   default     = false
+}
+
+variable "proyectos_cierre" {
+  description = "Si el modelo tiene los proyectos de cierre (efímero: destruyen el entorno de una rama de versión al mergear o cerrar su PR hacia main-efimero). Usan el rol de despliegue y requieren rol_administrador (la política inline no cubre sus log groups)"
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.proyectos_cierre || var.rol_administrador
+    error_message = "proyectos_cierre = true requiere rol_administrador = true."
+  }
 }

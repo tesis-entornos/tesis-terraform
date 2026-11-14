@@ -475,7 +475,7 @@ resource "aws_codebuild_project" "desplegar" {
       type              = "GITHUB"
       source_identifier = secondary_sources.value.source_identifier
       location          = "https://github.com/tesis-entornos/${secondary_sources.value.repo}.git"
-      git_clone_depth   = 1
+      git_clone_depth   = secondary_sources.value.git_clone_depth
 
       auth {
         type     = "CODECONNECTIONS"

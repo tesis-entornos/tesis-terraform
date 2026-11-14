@@ -46,3 +46,20 @@ fuentes_secundarias = {
     { source_identifier = "backend_cd_main", repo = "tesis-backend-cd", version = "main" },
   ]
 }
+
+# Proyectos de cierre (tesis-efimero-cerrar-<x>): al mergear o cerrar el PR de una rama de versión
+# hacia main-efimero, destruir-efimero.yml decide si destruye su entorno. Mismo terraform que el
+# despliegue (actualizar los dos juntos) y el main del otro repo de CD con clon completo (el
+# buildspec lista sus ramas).
+proyectos_cierre = true
+
+fuentes_secundarias_cierre = {
+  backend = [
+    { source_identifier = "terraform", repo = "tesis-terraform", version = "47032ae0df2c7b9ccbd9b7930565a157ef535ed1" },
+    { source_identifier = "frontend_cd_main", repo = "tesis-frontend-cd", version = "main", git_clone_depth = 0 },
+  ]
+  frontend = [
+    { source_identifier = "terraform", repo = "tesis-terraform", version = "47032ae0df2c7b9ccbd9b7930565a157ef535ed1" },
+    { source_identifier = "backend_cd_main", repo = "tesis-backend-cd", version = "main", git_clone_depth = 0 },
+  ]
+}
