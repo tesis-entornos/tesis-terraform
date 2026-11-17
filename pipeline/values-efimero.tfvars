@@ -22,7 +22,7 @@ secreto_superusuario           = true
 # Serialización por entorno: cada build espera (sondeo cada 15 s, hasta 60 min) a los builds de su
 # misma rama que arrancaron antes; el timeout cubre la espera más el despliegue.
 permisos_serializacion = true
-timeout_minutos        = 120
+timeout_minutos        = 180
 
 # El rol corre Terraform de entorno/ en una cuenta aislada: AdministratorAccess (diferencia con
 # producción, declarada).
