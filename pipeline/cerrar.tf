@@ -1,5 +1,5 @@
 # Proyectos de cierre (proyectos_cierre, solo el efímero): uno por repo de CD. Al mergear o cerrar el
-# PR de una rama de versión (release/c<N>-<n> o hotfix/c<N>-<n>) hacia main-efimero en
+# PR de una rama de versión (release/c<N>-<n>) hacia main-efimero en
 # tesis-backend-cd / tesis-frontend-cd, el proyecto de ese servicio ejecuta destruir-<modelo>.yml
 # del bucket de buildspecs de la compartida, que decide si destruye el entorno de esa rama.
 # Misma fuente principal, rol, imagen y variables que el proyecto de despliegue del mismo servicio
@@ -14,7 +14,7 @@ locals {
   cerrar_buildspec_arn = "arn:aws:s3:::${var.buildspecs_bucket}/${var.buildspecs_folder}/destruir-${var.modelo}.yml"
 
   cerrar_webhook_base_ref_pattern = "^refs/heads/main-efimero$"
-  cerrar_webhook_head_ref_pattern = "^refs/heads/(release|hotfix)/c[0-9]+-[0-9]+$"
+  cerrar_webhook_head_ref_pattern = "^refs/heads/release/c[0-9]+-[0-9]+$"
 }
 
 resource "aws_cloudwatch_log_group" "cerrar" {

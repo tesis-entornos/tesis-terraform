@@ -12,7 +12,7 @@ importar_conexion      = false
 buildspecs_bucket = "tesis-entornos-buildspecs-582621604637"
 buildspecs_folder = "main"
 
-webhook_head_ref_pattern = "^refs/heads/(release|hotfix)/c[0-9]+-[0-9]+$"
+webhook_head_ref_pattern = "^refs/heads/release/c[0-9]+-[0-9]+$"
 
 # Sin permisos de despliegue en la compartida. Secreto del superusuario para la suite Playwright
 # (tesis/efimero/first-superuser-password, creado por base-modelo/).

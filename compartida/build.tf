@@ -1,6 +1,7 @@
-# Build único: un proyecto de CodeBuild por repo de la aplicación. En cada PR de release/* o
-# hotfix/* hacia main construye la imagen con el buildspec publicado en el bucket de buildspecs
-# y la sube a su repo de ECR. Docker Hub se usa autenticado (secreto tesis/compartida/dockerhub).
+# Build único: un proyecto de CodeBuild por repo de la aplicación. En cada PR de
+# release/efimero/c<N>-<n> o release/fijo/c<N>-<n> hacia main construye la imagen con el buildspec
+# publicado en el bucket de buildspecs y la sube a su repo de ECR. Docker Hub se usa autenticado
+# (secreto tesis/compartida/dockerhub).
 
 locals {
   build_repos = {
@@ -203,7 +204,7 @@ resource "aws_codebuild_webhook" "build" {
 
     filter {
       type    = "HEAD_REF"
-      pattern = "^refs/heads/(release|hotfix)/.+$"
+      pattern = "^refs/heads/release/(efimero|fijo)/c[0-9]+-[0-9]+$"
     }
   }
 
