@@ -11,3 +11,6 @@ pull_account_ids = [
 ]
 
 buildspecs_folder = "main"
+
+# Cuentas de GitHub que disparan builds por PR: mrtn-c
+github_pr_actor_ids = ["56566511"]

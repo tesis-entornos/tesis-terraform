@@ -44,3 +44,13 @@ variable "buildspecs_folder" {
     error_message = "buildspecs_folder es una ruta relativa sin barras al principio ni al final."
   }
 }
+
+variable "github_pr_actor_ids" {
+  description = "IDs numéricos de las cuentas de GitHub que pueden disparar builds con eventos de PR (gh api users/<usuario> --jq .id). Con los repos públicos, un PR desde un fork de otra cuenta no dispara builds. Los grupos PUSH no se filtran: un fork no puede pushear a las ramas del repo"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.github_pr_actor_ids) > 0 && alltrue([for id in var.github_pr_actor_ids : can(regex("^[0-9]+$", id))])
+    error_message = "github_pr_actor_ids necesita al menos un ID, y cada uno es numérico (no el login)."
+  }
+}

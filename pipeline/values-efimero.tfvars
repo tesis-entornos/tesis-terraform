@@ -63,3 +63,6 @@ fuentes_secundarias_cierre = {
     { source_identifier = "backend_cd_main", repo = "tesis-backend-cd", version = "main", git_clone_depth = 0 },
   ]
 }
+
+# Cuentas de GitHub que disparan builds por PR: mrtn-c
+github_pr_actor_ids = ["56566511"]

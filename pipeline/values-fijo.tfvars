@@ -21,3 +21,6 @@ secreto_superusuario           = true
 
 descripcion_destino = "en el entorno compartido del fijo"
 descripcion_disparo = "en cada push a dev"
+
+# Cuentas de GitHub que disparan builds por PR: mrtn-c
+github_pr_actor_ids = ["56566511"]

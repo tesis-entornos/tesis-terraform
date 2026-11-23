@@ -140,6 +140,11 @@ resource "aws_codebuild_webhook" "cerrar" {
       type    = "HEAD_REF"
       pattern = local.cerrar_webhook_head_ref_pattern
     }
+
+    filter {
+      type    = "ACTOR_ACCOUNT_ID"
+      pattern = "^(${join("|", var.github_pr_actor_ids)})$"
+    }
   }
 
   # Sin esto, CodeBuild aplica ALL_PULL_REQUESTS a los webhooks nuevos: los eventos de PR de quien no

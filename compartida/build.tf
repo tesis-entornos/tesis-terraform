@@ -206,6 +206,11 @@ resource "aws_codebuild_webhook" "build" {
       type    = "HEAD_REF"
       pattern = "^refs/heads/release/(efimero|fijo)/c[0-9]+-[0-9]+$"
     }
+
+    filter {
+      type    = "ACTOR_ACCOUNT_ID"
+      pattern = "^(${join("|", var.github_pr_actor_ids)})$"
+    }
   }
 
   # Sin esto, CodeBuild aplica ALL_PULL_REQUESTS a los webhooks nuevos: los PR de quien no tenga un
